@@ -6,7 +6,6 @@ import BasicView from "@/sdk/views/BasicView";
 import type { Config, Storage } from "..";
 import { transferTokenToAddress } from "../utils/transerToAddress";
 import ClaimedView from "../views/Claimed";
-import { totalmem } from "os";
 
 export default async function page({
   body,
@@ -30,17 +29,29 @@ export default async function page({
     walletAddress,
     tokenAddress,
   } = config;
+  console.log(body.interactor);
+  console.log(config);
   const { fid: viewerFid, verified_addresses } = body.interactor;
 
   let paymentAmount = generalAmount;
-  const viewerFromStorage = storage.users[viewerFid];
+  let viewerFromStorage;
+  //users.viewerFid could also not be present
+  console.log("In claim route");
+  if (!storage.users) {
+    storage.users = {};
+    viewerFromStorage = undefined;
+  } else {
+    viewerFromStorage = storage.users?.[viewerFid];
+  }
+  console.log("viewerFromStorage", viewerFromStorage);
   if (enableGating) {
     await runGatingChecks(body, config.gating);
   }
 
   //Check cool down time is not expired
+  console.log(cooldown);
   if (cooldown > -1) {
-    const viewerFromStorage = storage.users[viewerFid];
+    console.log("I am here first");
     const now = Date.now();
 
     const lastUsage = viewerFromStorage?.lastUsage || 0;
@@ -55,10 +66,12 @@ export default async function page({
 
   //Check if user has already claimed
   else if (viewerFromStorage?.claimed) {
+    console.log("I am here second");
     throw new FrameError("You can only claim once!");
   }
 
-  if (viewerFid === creatorFid && false) {
+  console.log(viewerFid, creatorFid);
+  if (viewerFid == creatorFid) {
     //User is creator so return the approve screen
     return {
       buttons: [
