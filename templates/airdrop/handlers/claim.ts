@@ -31,10 +31,9 @@ export default async function page({
     } = config
 
     const {
-        fid,
+        fid: viewerFid,
         verified_addresses: { eth_addresses: viewerAddresses },
     } = body.interactor
-    const viewerFid = 1
 
     let paymentAmount = generalAmount
     let viewerFromStorage
