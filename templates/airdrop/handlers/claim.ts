@@ -31,16 +31,35 @@ export default async function page({
   } = config;
   console.log(body.interactor);
   console.log(config);
-  const { fid: viewerFid, verified_addresses } = body.interactor;
+  const { fid, verified_addresses } = body.interactor;
+  const viewerFid = 1;
 
   let paymentAmount = generalAmount;
   let viewerFromStorage;
   //users.viewerFid could also not be present
   console.log("In claim route");
+
   if (!storage.users) {
     storage.users = {};
     viewerFromStorage = undefined;
   } else {
+    console.log(storage.users);
+    storage.users = {
+      "1": {
+        claimed: true,
+        lastUsage: 1728375487336,
+        username: "frametrain",
+        fid: "1",
+        earnings: 20,
+      },
+      "213144": {
+        claimed: true,
+        lastUsage: 1728374460860,
+        username: "complexlity",
+        fid: "213144",
+        earnings: 40,
+      },
+    };
     viewerFromStorage = storage.users?.[viewerFid];
   }
   console.log("viewerFromStorage", viewerFromStorage);
@@ -92,8 +111,8 @@ export default async function page({
     };
   }
 
-  const viewerAddresses = verified_addresses.eth_addresses;
-
+  //   const viewerAddresses = verified_addresses.eth_addresses;
+  const viewerAddresses = ["0xd23F4658351CBc8cE60571d2608Ac125191079ec"];
   //Get blacklist, whitelist or claimed
   for (let i = 0; i < viewerAddresses.length; i++) {
     const address = viewerAddresses[i];
@@ -138,6 +157,9 @@ export default async function page({
         lastUsage: Date.now(),
         username: body.interactor.username,
         fid: viewerFid,
+        earnings: viewerFromStorage?.earnings
+          ? viewerFromStorage.earnings + paymentAmount
+          : paymentAmount,
       },
     },
     totalAmountEarned: (storage.totalAmountEarned ?? 0) + paymentAmount,
