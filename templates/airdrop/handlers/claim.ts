@@ -4,7 +4,7 @@ import { runGatingChecks } from '@/lib/gating'
 import { FrameError } from '@/sdk/error'
 import BasicView from '@/sdk/views/BasicView'
 import type { Config, Storage } from '..'
-import { transferTokenToAddress } from '../utils/onchainUtils'
+import { transferTokenToAddress, transferTokenToAddressUsingGlide } from '../utils/onchainUtils'
 import ClaimedView from '../views/Claimed'
 import PendingApprovalView from '../views/PendingApproval'
 
@@ -30,44 +30,41 @@ export default async function page({
         walletAddress,
         tokenAddress,
     } = config
-
-    const {
-        fid: viewerFid,
-        verified_addresses: { eth_addresses: viewerAddresses },
-    } = body.interactor
+    const { fid: viewerFid, verified_addresses } = body.interactor
 
     let paymentAmount = generalAmount
     let viewerFromStorage
-
+    if (enableGating) {
+        await runGatingChecks(body, config.gating)
+    }
     if (!storage.users) {
         storage.users = {}
         viewerFromStorage = undefined
     } else {
-        viewerFromStorage = storage.users?.[viewerFid]
+        viewerFromStorage = storage.users[viewerFid]
     }
-    console.log('viewerFromStorage', viewerFromStorage)
-    if (enableGating) {
-        await runGatingChecks(body, config.gating)
-    }
-    if (cooldown > -1) {
-        console.log('I am here first')
-        const now = Date.now()
 
-        const lastUsage = viewerFromStorage?.lastUsage || 0
-        const cooldownMs = cooldown * 1000
-        const cooldownEndTime = lastUsage + cooldownMs
+    //Skip if it's the user's first time. Check cool down time is not expired
+    if (viewerFromStorage) {
+        if (cooldown > -1) {
+            const viewerFromStorage = storage.users[viewerFid]
+            const now = Date.now()
 
-        if (now < cooldownEndTime) {
-            const timeLeftInSeconds = Math.ceil((cooldownEndTime - now) / 1000)
-            throw new FrameError(`Cooldown. claim again in: ${timeLeftInSeconds}s`)
+            const lastUsage = viewerFromStorage?.lastUsage || 0
+            const cooldownMs = cooldown * 1000
+            const cooldownEndTime = lastUsage + cooldownMs
+
+            if (now < cooldownEndTime) {
+                const timeLeftInSeconds = Math.ceil((cooldownEndTime - now) / 1000)
+                throw new FrameError(`Cooldown. claim again in: ${timeLeftInSeconds}s`)
+            }
+        }
+
+        //Check if user has already claimed i.e colldowTime = -1
+        else if (viewerFromStorage.claimed) {
+            throw new FrameError('You can only claim once!')
         }
     }
-
-    //Check if user has already claimed
-    else if (viewerFromStorage?.claimed) {
-        throw new FrameError('You can only claim once!')
-    }
-
     if (viewerFid == creatorFid) {
         //User is creator so return the approve screen
         return {
@@ -78,11 +75,12 @@ export default async function page({
                     handler: 'tx',
                 },
             ],
-            component: PendingApprovalView(config)
-            ,
+            component: PendingApprovalView(config),
             handler: 'approve',
         }
     }
+
+    const viewerAddresses = verified_addresses.eth_addresses
 
     //Get blacklist, whitelist or claimed
     for (let i = 0; i < viewerAddresses.length; i++) {
@@ -115,6 +113,20 @@ export default async function page({
     }
     // console.log({ configuration });
     console.log('Transfering token to address...')
+    if (config.crossTokenEnabled && config.crossToken.chain && config.crossToken.symbol) {
+        const chainName = config.chain === 'ethereum' ? 'mainnet' : config.chain
+        const crossTokenKey = `${chainName}/${config.tokenAddress}`
+        const crossTokens = config.crossTokens[crossTokenKey]
+
+        const crossToken = crossTokens?.find(
+            (token) =>
+                token.currencySymbol === config.crossToken.symbol &&
+                token.chainName.toLowerCase() === config.crossToken.chain
+        )
+        if (crossToken) {
+            transferTokenToAddressUsingGlide(configuration, crossToken)
+        }
+    }
     transferTokenToAddress(configuration)
 
     //Update storage

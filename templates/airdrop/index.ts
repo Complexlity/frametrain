@@ -3,7 +3,6 @@ import type { GatingType } from '@/sdk/components/gating/types'
 import Inspector from './Inspector'
 import cover from './cover.png'
 import handlers from './handlers'
-import type { Currency } from '@paywithglide/glide-js'
 import type { Token } from './utils/onchainUtils'
 
 export type LinkButton = {
@@ -52,13 +51,13 @@ const defaultConfig: Config = {
     tokenAddress: '',
     tokenName: '',
     tokenSymbol: '',
+    chain: 'base',
     crossTokenEnabled: false,
     crossTokens: {},
     crossToken: {
         chain: '',
         symbol: '',
     },
-    chain: 'base',
     walletAddress: '',
     generalAmount: 0,
     whitelist: [],
