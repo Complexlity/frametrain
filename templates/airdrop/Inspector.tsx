@@ -18,6 +18,7 @@ import { isAddress } from 'viem'
 import type { Config, LinkButton } from '.'
 import { airdropChains } from '.'
 import { getContractDetails } from './utils/onchainUtils'
+import { numeric } from 'drizzle-orm/pg-core'
 
 interface WhiteList {
     address: string
@@ -27,7 +28,7 @@ export default function Inspector() {
     const userFid = useFarcasterId()
     const [config, updateConfig] = useFrameConfig<Config>()
     useEffect(() => {
-        if (!(userFid && config)) return
+        if (!(userFid && config) || config.creatorId === Number(userFid)) return
 
         updateConfig({ creatorId: Number(userFid) })
     }, [userFid, updateConfig, config])
@@ -218,43 +219,14 @@ function BlackListSection() {
     )
 }
 
-const tokenDetailsMap = new Map<{ address: string, chain: string }, { name: string, symbol: string }>()
+const tokenDetailsMap = new Map<
+    { address: string; chain: string },
+    { name: string; symbol: string }
+>()
 
 function GeneralSection() {
     const [config, updateConfig] = useFrameConfig<Config>()
-    
-    const chainName = useMemo(() => config.chain === "ethereum" ? "mainnet" : config.chain, [config.chain]);
-    const tokenAddress = useMemo(() => isAddress(config.tokenAddress) ? config.tokenAddress : "", [config.tokenAddress]);
-    const fetchContractDetails = useCallback(async () => {
-        if (tokenAddress) {
-            let details = tokenDetailsMap.get({ address: tokenAddress, chain: chainName }) ?? null
-            if (!details) {
-                console.log("I couldn't get what I wanted from the map...")
-                details = await getContractDetails(chainName, tokenAddress);
-                if (details) {
-                    tokenDetailsMap.set({ address: tokenAddress, chain: chainName }, details)
-                }
-            }
-                updateConfig({
-                    tokenName: details?.name ?? '',
-                    tokenSymbol: details?.symbol ?? '',
-                })
-                if(!details) {
-                    toast.error(`Couldn't fetch contract details for ${tokenAddress} on ${chainName} chain`)
-                }
-        }
-        else {
-            console.log("Token address is not found")
-            updateConfig({
-                tokenName: '',
-                tokenSymbol: '',
-            })
-        }
-    }, [chainName, tokenAddress, updateConfig]);
 
-    useEffect(() => {
-        fetchContractDetails();
-    }, [fetchContractDetails]);
     return (
         <>
             <h2 className="text-lg font-semibold">Token Contract Address</h2>
@@ -268,7 +240,7 @@ function GeneralSection() {
                     })
                 }}
             />
-            <small className='text-green-600 bold px-2' >{config.tokenName}</small>
+            <small className="text-green-600 bold px-2">{config.tokenName}</small>
             <h2 className="text-lg font-semibold">Chain</h2>
             <Select
                 defaultValue={config.chain}
