@@ -37,16 +37,11 @@ export default async function page({
     const { fid: viewerFid, verified_addresses } = body.interactor
 
     let paymentAmount = generalAmount
-    let viewerFromStorage
     if (enableGating) {
         await runGatingChecks(body, config.gating)
     }
-    if (!storage.users) {
-        storage.users = {}
-        viewerFromStorage = undefined
-    } else {
-        viewerFromStorage = storage.users[viewerFid]
-    }
+    storage.users ??= {}
+    const viewerFromStorage = storage.users[viewerFid]
 
     //Skip if it's the user's first time. Check cool down time is not expired
     if (viewerFromStorage) {
@@ -120,7 +115,7 @@ export default async function page({
         const crossTokenKey = `${chainName}/${config.tokenAddress}`
         const crossTokens = config.crossTokens[crossTokenKey]
 
-        const crossToken = crossTokens?.find( 
+        const crossToken = crossTokens?.find(
             (token) =>
                 token.currencySymbol === config.crossToken.symbol &&
                 token.chainName.toLowerCase() === config.crossToken.chain

@@ -6,6 +6,7 @@ import {
     createSession,
     currencies,
     listPaymentOptions,
+    type PaymentOption,
     updatePaymentTransaction,
     waitForSession,
 } from '@paywithglide/glide-js'
@@ -64,7 +65,7 @@ export async function transferTokenToAddress(configuration: Configuration) {
 }
 export async function transferTokenToAddressUsingGlide(
     configuration: Configuration,
-    crossToken: Token,
+    crossToken: PaymentOption,
     config: Config
 ) {
     const {
@@ -87,11 +88,11 @@ export async function transferTokenToAddressUsingGlide(
     }).extend(publicActions)
 
     const glidePaymentAmount = Number(paymentAmount) * Number(crossToken.paymentAmount)
-    //@ts-expect-error: config.tokenSymbol may not be a key of currencies
-    const contractPaymentAmount = currencies?.[config.tokenSymbol?.toLowerCase()]?.decimals
-        ? //@ts-expect-error: config.tokenSymbol may not be a key of currencies
-          parseUnits(`${paymentAmount}`, currencies?.[config.tokenSymbol?.toLowerCase()]?.decimals)
+    const tokenInfo = currencies[config.tokenSymbol?.toLowerCase() as keyof typeof currencies]
+    const contractPaymentAmount = tokenInfo?.decimals
+        ? parseUnits(`${paymentAmount}`, tokenInfo.decimals)
         : parseEther(`${paymentAmount}`)
+
     const chainName = chain == 'ethereum' ? 'mainnet' : chain
     const glideConfig = getGlide(chainName)
     const session = await createSession(glideConfig, {

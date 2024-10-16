@@ -1,7 +1,8 @@
 'use server'
-import type { BuildFrameData, FrameButtonMetadata } from '@/lib/farcaster'
+import type { BuildFrameData } from '@/lib/farcaster'
 import { loadGoogleFontAllVariants } from '@/sdk/fonts'
-import type { Config, Storage } from '..'
+import * as z from 'zod'
+import type { Config, LinkButton, Storage } from '..'
 import Cover from '../views/Cover'
 
 export default async function initial({
@@ -26,7 +27,7 @@ export default async function initial({
     }
 
     const roboto = await loadGoogleFontAllVariants('Roboto')
-    const buttons: FrameButtonMetadata[] = config.buttons.map((button) => {
+    const buttons: LinkButton[] = config.buttons.map((button) => {
         let target = button.target
         if (!isValidUrl(target)) {
             //never gonna give you up youtube link
