@@ -88,11 +88,11 @@ export async function transferTokenToAddressUsingGlide(
     }).extend(publicActions)
 
     const glidePaymentAmount = Number(paymentAmount) * Number(crossToken.paymentAmount)
-    const tokenInfo = currencies[config.tokenSymbol?.toLowerCase() as keyof typeof currencies]
+    const tokenInfo = currencies[config.tokenSymbol?.toLowerCase() as keyof typeof currencies];
     const contractPaymentAmount = tokenInfo?.decimals
         ? parseUnits(`${paymentAmount}`, tokenInfo.decimals)
-        : parseEther(`${paymentAmount}`)
-
+        : parseEther(`${paymentAmount}`);
+        
     const chainName = chain == 'ethereum' ? 'mainnet' : chain
     const glideConfig = getGlide(chainName)
     const session = await createSession(glideConfig, {
@@ -173,9 +173,8 @@ export async function getCrossChainTokenDetails(
     const dummyRecepientAddress = '0x8ff47879d9eE072b593604b8b3009577Ff7d6809'
     try {
         const symbol = tokenSymbol?.toLowerCase()
-        let decimals
-        if (!(currencies && symbol in currencies)) decimals = null
-        decimals = currencies[symbol as keyof typeof currencies]?.decimals
+        const currencyInfo = currencies[symbol as keyof typeof currencies]
+        const decimals = currencyInfo ? currencyInfo.decimals : null
         const amount = decimals ? parseUnits('1', decimals) : parseEther('1')
 
         const glideConfig = getGlide(farcasterSupportedChains as unknown as ChainKey[])

@@ -40,8 +40,8 @@ export default async function page({
     if (enableGating) {
         await runGatingChecks(body, config.gating)
     }
-    storage.users ??= {}
-    const viewerFromStorage = storage.users[viewerFid]
+    storage.users ??= {};
+    const viewerFromStorage = storage.users[viewerFid];
 
     //Skip if it's the user's first time. Check cool down time is not expired
     if (viewerFromStorage) {
