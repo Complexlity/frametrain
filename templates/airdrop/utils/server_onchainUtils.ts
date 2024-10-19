@@ -25,7 +25,12 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import type { Config } from '../index'
 import { airdropChains } from '../index'
-import { type Configuration, chainKeyToChain, farcasterSupportedChains } from './lib'
+import {
+    type Configuration,
+    chainKeyToChain,
+    convertTransferToTransferFrom,
+    farcasterSupportedChains,
+} from './lib'
 import type { ChainKey } from '@/sdk/viem'
 
 export async function transferTokenToAddress(configuration: Configuration) {
@@ -54,12 +59,14 @@ export async function transferTokenToAddress(configuration: Configuration) {
         args,
     } as EncodeFunctionDataParameters)
     try {
+        console.log('I am sending the transaction')
         const txHash = await walletClient.sendTransaction({
             to: tokenAddress as Address,
             data,
         })
         return txHash
     } catch (error) {
+        console.log('Error while sending transaction', error)
         return null
     }
 }
@@ -88,11 +95,11 @@ export async function transferTokenToAddressUsingGlide(
     }).extend(publicActions)
 
     const glidePaymentAmount = Number(paymentAmount) * Number(crossToken.paymentAmount)
-    const tokenInfo = currencies[config.tokenSymbol?.toLowerCase() as keyof typeof currencies];
+    const tokenInfo = currencies[config.tokenSymbol?.toLowerCase() as keyof typeof currencies]
     const contractPaymentAmount = tokenInfo?.decimals
         ? parseUnits(`${paymentAmount}`, tokenInfo.decimals)
-        : parseEther(`${paymentAmount}`);
-        
+        : parseEther(`${paymentAmount}`)
+
     const chainName = chain == 'ethereum' ? 'mainnet' : chain
     const glideConfig = getGlide(chainName)
     const session = await createSession(glideConfig, {
@@ -110,7 +117,7 @@ export async function transferTokenToAddressUsingGlide(
     }
 
     // Convert the `transfer` unsigned transaction to `transferFrom`
-    //@ts-expect-error: session.unsignedTransaction returns untyped
+    // @ts-expect-error: session.unsignedTransaction returns untyped
     const transaction = convertTransferToTransferFrom(session.unsignedTransaction, walletAddress)
     // Send the transaction using the wallet client
     try {

@@ -1,206 +1,203 @@
-import { client } from "@/db/client";
-import { frameTable, interactionTable } from "@/db/schema";
-import type { BuildFrameData, FramePayload } from "@/lib/farcaster";
-import { updateFrameStorage } from "@/lib/frame";
-import {
-  buildFramePage,
-  validatePayload,
-  validatePayloadAirstack,
-} from "@/lib/serve";
-import type { BaseConfig, BaseStorage } from "@/lib/types";
-import { FrameError } from "@/sdk/error";
-import templates from "@/templates";
-import { waitUntil } from "@vercel/functions";
-import { type InferSelectModel, eq } from "drizzle-orm";
-import { notFound } from "next/navigation";
-import type { NextRequest } from "next/server";
-import uniFarcasterSdk from "uni-farcaster-sdk";
-import { etherUnits } from "viem";
+import { client } from '@/db/client'
+import { frameTable, interactionTable } from '@/db/schema'
+import type { BuildFrameData, FramePayload } from '@/lib/farcaster'
+import { updateFrameStorage } from '@/lib/frame'
+import { buildFramePage, validatePayload, validatePayloadAirstack } from '@/lib/serve'
+import type { BaseConfig, BaseStorage } from '@/lib/types'
+import { FrameError } from '@/sdk/error'
+import templates from '@/templates'
+import { waitUntil } from '@vercel/functions'
+import { type InferSelectModel, eq } from 'drizzle-orm'
+import { notFound } from 'next/navigation'
+import type { NextRequest } from 'next/server'
+import uniFarcasterSdk from 'uni-farcaster-sdk'
+import { etherUnits } from 'viem'
 
-export const dynamic = "force-dynamic";
-export const dynamicParams = true;
-export const fetchCache = "force-no-store";
+export const dynamic = 'force-dynamic'
+export const dynamicParams = true
+export const fetchCache = 'force-no-store'
 
 export async function POST(
-  request: NextRequest,
-  { params }: { params: { frameId: string; handler: string } }
+    request: NextRequest,
+    { params }: { params: { frameId: string; handler: string } }
 ) {
-  const searchParams: Record<string, string> = {};
+    const searchParams: Record<string, string> = {}
 
-  request.nextUrl.searchParams.forEach((value, key) => {
-    if (!["frameId", "handler"].includes(key)) {
-      searchParams[key] = value;
-    }
-  });
-
-  const frame = await client
-    .select()
-    .from(frameTable)
-    .where(eq(frameTable.id, params.frameId))
-    .get();
-
-  if (!frame) {
-    notFound();
-  }
-
-  if (!frame.config) {
-    notFound();
-  }
-
-  const template = templates[frame.template];
-
-  const payload = (await request.json()) as FramePayload;
-
-  const handlerFn =
-    template.handlers[params.handler as keyof typeof template.handlers];
-
-  if (!handlerFn) {
-    notFound();
-  }
-
-  console.log({ payload });
-  // const validatedPayload = await validatePayloadAirstack(
-  //   payload,
-  //   process.env.AIRSTACK_API_KEY!
-  // );
-  // console.log({ validatedPayloadAirstack });
-  // const validatedPayload2 = await validatePayload(payload);
-
-  let buildParameters = {} as BuildFrameData;
-  const sdkInstance = new uniFarcasterSdk({
-    airstackApiKey: process.env.AIRSTACK_API_KEY!,
-    activeService: "airstack",
-  });
-  const userfid = payload.untrustedData.fid;
-  const { data, error } = await sdkInstance.getUsersByFid([userfid]);
-  if (error) {
-    throw new Error(`could not get user, ${userfid}`);
-  }
-  //@ts-ignore
-  payload.interactor = {
-    fid: payload.untrustedData.fid,
-    verified_addresses: {
-      eth_addresses: data[0].ethAddresses,
-    },
-    custody_address: data[0].ethAddresses.at(-1),
-    username: data[0].username,
-  };
-
-  try {
-    buildParameters = await handlerFn({
-      body: payload,
-      config: frame.config as BaseConfig,
-      storage: frame.storage as BaseStorage,
-      params: searchParams,
-    });
-  } catch (error) {
-    if (error instanceof FrameError) {
-      return Response.json(
-        { message: error.message },
-        {
-          status: 400,
+    request.nextUrl.searchParams.forEach((value, key) => {
+        if (!['frameId', 'handler'].includes(key)) {
+            searchParams[key] = value
         }
-      );
+    })
+
+    const frame = await client
+        .select()
+        .from(frameTable)
+        .where(eq(frameTable.id, params.frameId))
+        .get()
+
+    if (!frame) {
+        notFound()
     }
 
-    console.error(error);
+    if (!frame.config) {
+        notFound()
+    }
 
-    return Response.json(
-      { message: "Unknown error" },
-      {
-        status: 500,
-      }
-    );
-  }
+    const template = templates[frame.template]
 
-  if (buildParameters.transaction) {
-    waitUntil(processFrame(frame, buildParameters, payload));
+    const payload = (await request.json()) as FramePayload
 
-    return new Response(JSON.stringify(buildParameters.transaction), {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-  }
+    const handlerFn = template.handlers[params.handler as keyof typeof template.handlers]
 
-  const renderedFrame = await buildFramePage({
-    id: frame.id,
-    linkedPage: frame.linkedPage || undefined,
-    ...(buildParameters as BuildFrameData),
-  });
+    if (!handlerFn) {
+        notFound()
+    }
 
-  waitUntil(processFrame(frame, buildParameters, payload));
+    console.log({ payload })
+    // const validatedPayload = await validatePayloadAirstack(
+    //   payload,
+    //   process.env.AIRSTACK_API_KEY!
+    // );
+    // console.log({ validatedPayloadAirstack });
+    // const validatedPayload2 = await validatePayload(payload);
 
-  return new Response(renderedFrame, {
-    headers: {
-      "Content-Type": "text/html",
-    },
-  });
+    let buildParameters = {} as BuildFrameData
+    const sdkInstance = new uniFarcasterSdk({
+        airstackApiKey: process.env.AIRSTACK_API_KEY!,
+        activeService: 'airstack',
+    })
+    const userfid = payload.untrustedData.fid
+    const { data, error } = await sdkInstance.getUsersByFid([userfid])
+    if (error) {
+        throw new Error(`could not get user, ${userfid}`)
+    }
+    //@ts-ignore
+    payload.interactor = {
+        fid: payload.untrustedData.fid,
+        verified_addresses: {
+            eth_addresses: data[0].ethAddresses,
+        },
+        custody_address: data[0].ethAddresses.at(-1),
+        username: data[0].username,
+    }
+
+    try {
+        buildParameters = await handlerFn({
+            body: payload,
+            config: frame.config as BaseConfig,
+            storage: frame.storage as BaseStorage,
+            params: searchParams,
+        })
+        console.log('I finished building things')
+    } catch (error) {
+        console.log('I errored somewhere')
+        if (error instanceof FrameError) {
+            return Response.json(
+                { message: error.message },
+                {
+                    status: 400,
+                }
+            )
+        }
+
+        console.error(error)
+
+        return Response.json(
+            { message: 'Unknown error' },
+            {
+                status: 500,
+            }
+        )
+    }
+
+    if (buildParameters.transaction) {
+        waitUntil(processFrame(frame, buildParameters, payload))
+
+        return new Response(JSON.stringify(buildParameters.transaction), {
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        })
+    }
+    console.log('I will render frame...')
+    const renderedFrame = await buildFramePage({
+        id: frame.id,
+        linkedPage: frame.linkedPage || undefined,
+        ...(buildParameters as BuildFrameData),
+    })
+
+    waitUntil(processFrame(frame, buildParameters, payload))
+    console.log('Rendered frame', renderedFrame)
+    return new Response(renderedFrame, {
+        headers: {
+            'Content-Type': 'text/html',
+        },
+    })
 }
 
 async function processFrame(
-  frame: InferSelectModel<typeof frameTable>,
-  parameters: BuildFrameData,
-  payload: FramePayload
+    frame: InferSelectModel<typeof frameTable>,
+    parameters: BuildFrameData,
+    payload: FramePayload
 ) {
-  const storageData = parameters.storage as BaseStorage | undefined;
+    const storageData = parameters.storage as BaseStorage | undefined
 
-  if (storageData) {
-    await updateFrameStorage(frame.id, storageData);
-  }
-
-  if (frame.webhooks) {
-    const webhookUrls = frame.webhooks;
-
-    if (!webhookUrls) {
-      return;
+    if (storageData) {
+        await updateFrameStorage(frame.id, storageData)
     }
 
-    for (const webhook of parameters?.webhooks || []) {
-      if (!webhookUrls?.[webhook.event]) {
-        continue;
-      }
+    if (frame.webhooks) {
+        const webhookUrls = frame.webhooks
 
-      fetch(webhookUrls[webhook.event], {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          event: webhook.event,
-          data: {
-            ...webhook.data,
-            createdAt: new Date().toISOString(),
-          },
-        }),
-      })
-        .then(() => {
-          console.log("Sent webhook");
+        if (!webhookUrls) {
+            return
+        }
+
+        for (const webhook of parameters?.webhooks || []) {
+            if (!webhookUrls?.[webhook.event]) {
+                continue
+            }
+
+            fetch(webhookUrls[webhook.event], {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    event: webhook.event,
+                    data: {
+                        ...webhook.data,
+                        createdAt: new Date().toISOString(),
+                    },
+                }),
+            })
+                .then(() => {
+                    console.log('Sent webhook')
+                })
+                .catch((e) => {
+                    console.error('Error sending webhook', e)
+                })
+        }
+    }
+
+    const airstackKey = frame.config?.airstackKey || process.env.AIRSTACK_API_KEY
+
+    // const airstackPayloadValidated = await validatePayloadAirstack(payload, airstackKey)
+
+    // console.log(JSON.stringify(airstackPayloadValidated, null, 2));
+
+    await client
+        .insert(interactionTable)
+        .values({
+            frame: frame.id,
+            fid: payload.untrustedData.fid.toString(),
+            buttonIndex: payload.untrustedData.buttonIndex.toString(),
+            inputText: payload.untrustedData.inputText || undefined,
+            state: payload.untrustedData.state || undefined,
+            transactionHash: payload.untrustedData.transactionId || undefined,
+            castFid: payload.untrustedData.castId.fid.toString(),
+            castHash: payload.untrustedData.castId.hash,
+            createdAt: new Date(),
         })
-        .catch((e) => {
-          console.error("Error sending webhook", e);
-        });
-    }
-  }
-
-  const airstackKey = frame.config?.airstackKey || process.env.AIRSTACK_API_KEY;
-
-  // const airstackPayloadValidated = await validatePayloadAirstack(payload, airstackKey)
-
-  // console.log(JSON.stringify(airstackPayloadValidated, null, 2));
-
-  await client
-    .insert(interactionTable)
-    .values({
-      frame: frame.id,
-      fid: payload.untrustedData.fid.toString(),
-      buttonIndex: payload.untrustedData.buttonIndex.toString(),
-      inputText: payload.untrustedData.inputText || undefined,
-      state: payload.untrustedData.state || undefined,
-      transactionHash: payload.untrustedData.transactionId || undefined,
-      castFid: payload.untrustedData.castId.fid.toString(),
-      castHash: payload.untrustedData.castId.hash,
-      createdAt: new Date(),
-    })
-    .run();
+        .run()
 }
 // `  await client
 //     .insert(interactionTable)

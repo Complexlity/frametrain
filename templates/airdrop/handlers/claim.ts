@@ -40,11 +40,12 @@ export default async function page({
     if (enableGating) {
         await runGatingChecks(body, config.gating)
     }
-    storage.users ??= {};
-    const viewerFromStorage = storage.users[viewerFid];
+    storage.users ??= {}
+    const viewerFromStorage = storage.users[viewerFid]
 
     //Skip if it's the user's first time. Check cool down time is not expired
     if (viewerFromStorage) {
+        console.log(viewerFromStorage)
         if (cooldown > -1) {
             const viewerFromStorage = storage.users[viewerFid]
             const now = Date.now()
@@ -52,8 +53,9 @@ export default async function page({
             const lastUsage = viewerFromStorage?.lastUsage || 0
             const cooldownMs = cooldown * 1000
             const cooldownEndTime = lastUsage + cooldownMs
-
+            console.log(lastUsage, cooldownMs, cooldownEndTime)
             if (now < cooldownEndTime) {
+                console.log('I have reached this point')
                 const timeLeftInSeconds = Math.ceil((cooldownEndTime - now) / 1000)
                 throw new FrameError(`Cooldown. claim again in: ${timeLeftInSeconds}s`)
             }
@@ -66,6 +68,7 @@ export default async function page({
     }
     if (viewerFid == creatorFid) {
         //User is creator so return the approve screen
+        console.log('Same person, Return Approve')
         return {
             buttons: [
                 {
@@ -111,6 +114,7 @@ export default async function page({
         walletAddress,
     }
     if (config.crossTokenEnabled && config.crossToken.chain && config.crossToken.symbol) {
+        console.log('Might cross.....')
         const chainName = config.chain === 'ethereum' ? 'mainnet' : config.chain
         const crossTokenKey = `${chainName}/${config.tokenAddress}`
         const crossTokens = config.crossTokens[crossTokenKey]
@@ -126,9 +130,11 @@ export default async function page({
             //Wait until ensure the transaction is at least sent before the frame returns
             waitUntil(transferTokenToAddressUsingGlide(configuration, crossToken, config))
         }
-    }
-    if (!config.crossTokenEnabled) {
-        transferTokenToAddress(configuration)
+    } else {
+        //If cross enabled but the token was not set, try doing it directly
+        console.log('Sending to user...')
+        waitUntil(transferTokenToAddress(configuration))
+        console.log('I passed here...')
     }
 
     //Update storage
@@ -148,6 +154,7 @@ export default async function page({
         },
         totalAmountEarned: (storage.totalAmountEarned ?? 0) + paymentAmount,
     }
+    console.log('I will return here')
 
     return {
         buttons: [
